@@ -35,6 +35,60 @@ PRESETS = {
     "Dolomiti (zona ristretta)": {"lat_min": 46.0, "lat_max": 46.7, "lon_min": 11.5, "lon_max": 12.6},
 }
 
+# Località di riferimento per identificare i punti rilevati (nome -> lat, lon)
+REFERENCE_PLACES = {
+    "Trento": (46.0679, 11.1211),
+    "Bolzano": (46.4983, 11.3548),
+    "Rovereto": (45.8905, 11.0404),
+    "Riva del Garda": (45.8850, 10.8412),
+    "Madonna di Campiglio": (46.2297, 10.8256),
+    "San Martino di Castrozza": (46.2612, 11.8014),
+    "Passo Rolle": (46.2947, 11.7889),
+    "Predazzo": (46.3096, 11.6067),
+    "Passo Cereda": (46.1500, 11.8500),
+    "Feltre": (46.0164, 11.9078),
+    "Belluno": (46.1400, 12.2170),
+    "Cortina d'Ampezzo": (46.5405, 12.1357),
+    "Agordo": (46.2778, 12.0339),
+    "Longarone": (46.2600, 12.3000),
+    "Vittorio Veneto": (45.9833, 12.3000),
+    "Asiago": (45.8722, 11.5122),
+    "Bassano del Grappa": (45.7667, 11.7333),
+    "Schio": (45.7167, 11.3500),
+    "Verona": (45.4384, 10.9916),
+    "Vicenza": (45.5455, 11.5354),
+    "Padova": (45.4064, 11.8768),
+    "Treviso": (45.6669, 12.2431),
+    "Venezia": (45.4408, 12.3155),
+    "Rovigo": (45.0705, 11.7905),
+    "Arco": (45.9186, 10.8836),
+    "Malé": (46.3542, 10.9203),
+    "Cavalese": (46.2856, 11.4569),
+    "Moena": (46.3733, 11.6567),
+    "Canazei": (46.4767, 11.7697),
+    "Cortina Marmolada": (46.4300, 11.8500),
+}
+
+
+def haversine_km(lat1, lon1, lat2, lon2):
+    """Distanza approssimata in km tra due punti geografici."""
+    r = 6371.0
+    p1, p2 = np.radians(lat1), np.radians(lat2)
+    dphi = np.radians(lat2 - lat1)
+    dlambda = np.radians(lon2 - lon1)
+    a = np.sin(dphi / 2) ** 2 + np.cos(p1) * np.cos(p2) * np.sin(dlambda / 2) ** 2
+    return 2 * r * np.arcsin(np.sqrt(a))
+
+
+def nearest_place(lat, lon):
+    """Ritorna (nome_località, distanza_km) più vicina al punto dato."""
+    best_name, best_dist = None, float("inf")
+    for name, (plat, plon) in REFERENCE_PLACES.items():
+        d = haversine_km(lat, lon, plat, plon)
+        if d < best_dist:
+            best_name, best_dist = name, d
+    return best_name, best_dist
+
 
 # ----------------------------------------------------------------------
 # Recupero dati
@@ -234,13 +288,16 @@ else:
     # Marker sui punti effettivamente rilevati, per riferimento
     for lat, lon, val in zip(data["lats"], data["lons"], data["values"]):
         if not np.isnan(val):
+            place, dist = nearest_place(lat, lon)
+            popup_text = f"{val:.1f} mm — vicino a {place} (~{dist:.0f} km)"
             folium.CircleMarker(
                 location=[lat, lon],
                 radius=2,
                 color="#1f4e79",
                 fill=True,
                 fill_opacity=0.6,
-                popup=f"{val:.1f} mm",
+                popup=popup_text,
+                tooltip=f"{place}: {val:.1f} mm",
             ).add_to(m)
 
     folium.LayerControl().add_to(m)
@@ -259,8 +316,11 @@ else:
             zip(data["lats"][valid_idx], data["lons"][valid_idx], data["values"][valid_idx]),
             key=lambda x: -x[2],
         )
+        places_info = [nearest_place(r[0], r[1]) for r in rows]
         st.dataframe(
             {
+                "Zona vicina": [p[0] for p in places_info],
+                "Dist. dalla zona (km)": [f"{p[1]:.0f}" for p in places_info],
                 "Lat": [f"{r[0]:.3f}" for r in rows],
                 "Lon": [f"{r[1]:.3f}" for r in rows],
                 "Pioggia (mm)": [f"{r[2]:.1f}" for r in rows],
