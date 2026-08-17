@@ -70,6 +70,27 @@ REFERENCE_PLACES = {
 }
 
 
+def decimal_to_dms(value: float, is_lat: bool) -> str:
+    """Converte una coordinata decimale in formato DMS, es. 46°31′35″N."""
+    hemisphere = ("N" if value >= 0 else "S") if is_lat else ("E" if value >= 0 else "W")
+    value = abs(value)
+    degrees = int(value)
+    minutes_full = (value - degrees) * 60
+    minutes = int(minutes_full)
+    seconds = round((minutes_full - minutes) * 60)
+    if seconds == 60:
+        seconds = 0
+        minutes += 1
+    if minutes == 60:
+        minutes = 0
+        degrees += 1
+    return f"{degrees}°{minutes:02d}′{seconds:02d}″{hemisphere}"
+
+
+def coords_to_dms(lat: float, lon: float) -> str:
+    return f"{decimal_to_dms(lat, True)} {decimal_to_dms(lon, False)}"
+
+
 def haversine_km(lat1, lon1, lat2, lon2):
     """Distanza approssimata in km tra due punti geografici."""
     r = 6371.0
@@ -289,7 +310,7 @@ else:
     for lat, lon, val in zip(data["lats"], data["lons"], data["values"]):
         if not np.isnan(val):
             place, dist = nearest_place(lat, lon)
-            popup_text = f"{val:.1f} mm — vicino a {place} (~{dist:.0f} km)"
+            popup_text = f"{val:.1f} mm — {coords_to_dms(lat, lon)} — vicino a {place} (~{dist:.0f} km)"
             folium.CircleMarker(
                 location=[lat, lon],
                 radius=2,
@@ -321,8 +342,7 @@ else:
             {
                 "Zona vicina": [p[0] for p in places_info],
                 "Dist. dalla zona (km)": [f"{p[1]:.0f}" for p in places_info],
-                "Lat": [f"{r[0]:.3f}" for r in rows],
-                "Lon": [f"{r[1]:.3f}" for r in rows],
+                "Coordinate": [coords_to_dms(r[0], r[1]) for r in rows],
                 "Pioggia (mm)": [f"{r[2]:.1f}" for r in rows],
             },
             use_container_width=True,
