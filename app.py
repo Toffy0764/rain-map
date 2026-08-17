@@ -19,7 +19,7 @@ import streamlit as st
 import folium
 from streamlit_folium import st_folium
 from scipy.interpolate import griddata
-from matplotlib import cm
+import matplotlib
 from matplotlib.colors import Normalize
 from PIL import Image
 
@@ -125,10 +125,7 @@ def raster_to_png_overlay(grid_z, vmax=None):
         vmax = np.nanmax(grid_z) if np.nanmax(grid_z) > 0 else 1.0
 
     norm = Normalize(vmin=0, vmax=vmax)
-    try:
-        cmap = cm.colormaps["Blues"]
-    except AttributeError:
-        cmap = cm.get_cmap("Blues")
+    cmap = matplotlib.colormaps["Blues"]
 
     rgba = cmap(norm(grid_z))
     rgba[..., 3] = 0.75  # trasparenza costante per sovrapposizione su mappa
