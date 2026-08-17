@@ -251,7 +251,7 @@ else:
         f"Massimo rilevato: {data['vmax']:.1f} mm"
     )
 
-    st_folium(m, width=None, height=650, returned_objects=[])
+    st_folium(m, width=None, height=850, returned_objects=[])
 
     with st.expander("📊 Dettaglio punti rilevati"):
         valid_idx = ~np.isnan(data["values"])
