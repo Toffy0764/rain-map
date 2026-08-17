@@ -125,7 +125,10 @@ def raster_to_png_overlay(grid_z, vmax=None):
         vmax = np.nanmax(grid_z) if np.nanmax(grid_z) > 0 else 1.0
 
     norm = Normalize(vmin=0, vmax=vmax)
-    cmap = cm.get_cmap("Blues")
+    try:
+        cmap = cm.colormaps["Blues"]
+    except AttributeError:
+        cmap = cm.get_cmap("Blues")
 
     rgba = cmap(norm(grid_z))
     rgba[..., 3] = 0.75  # trasparenza costante per sovrapposizione su mappa
