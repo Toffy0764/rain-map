@@ -1,0 +1,8 @@
+streamlit
+requests
+numpy
+scipy
+matplotlib
+folium
+streamlit-folium
+pillow
