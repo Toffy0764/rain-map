@@ -14,6 +14,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 
 import numpy as np
+import pandas as pd
 import requests
 import streamlit as st
 import folium
@@ -116,8 +117,8 @@ def nearest_place(lat, lon):
 # ----------------------------------------------------------------------
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def fetch_point_rain(lat: float, lon: float, days: int) -> float:
-    """Ritorna la pioggia cumulata (mm) sugli ultimi `days` giorni completi."""
+def fetch_point_daily(lat: float, lon: float, days: int):
+    """Ritorna la lista (data, mm) per gli ultimi `days` giorni completi in quel punto."""
     params = {
         "latitude": lat,
         "longitude": lon,
@@ -130,13 +131,24 @@ def fetch_point_rain(lat: float, lon: float, days: int) -> float:
         r = requests.get(OPEN_METEO_URL, params=params, timeout=15)
         r.raise_for_status()
         data = r.json()
+        times = data.get("daily", {}).get("time", [])
         values = data.get("daily", {}).get("precipitation_sum", [])
         # Escludo l'ultimo valore: è il giorno corrente (incompleto)
-        completed = values[:-1] if len(values) > days else values
-        completed = [v for v in completed if v is not None]
-        return float(sum(completed)) if completed else 0.0
+        if len(times) > days:
+            times = times[:-1]
+            values = values[:-1]
+        values = [v if v is not None else 0.0 for v in values]
+        return list(zip(times, values))
     except Exception:
+        return []
+
+
+def fetch_point_rain(lat: float, lon: float, days: int) -> float:
+    """Ritorna la pioggia cumulata (mm) sugli ultimi `days` giorni completi."""
+    daily = fetch_point_daily(lat, lon, days)
+    if not daily:
         return float("nan")
+    return float(sum(v for _, v in daily))
 
 
 def build_grid(lat_min, lat_max, lon_min, lon_max, resolution):
@@ -348,3 +360,21 @@ else:
             use_container_width=True,
             hide_index=True,
         )
+
+    with st.expander("📅 Dettaglio giornaliero per punto"):
+        option_labels = [
+            f"{places_info[i][0]} ({places_info[i][1]:.0f} km) — "
+            f"{coords_to_dms(rows[i][0], rows[i][1])} — {rows[i][2]:.1f} mm totali"
+            for i in range(len(rows))
+        ]
+        selected = st.selectbox("Scegli un punto", option_labels)
+        sel_idx = option_labels.index(selected)
+        sel_lat, sel_lon, sel_total = rows[sel_idx]
+
+        daily = fetch_point_daily(sel_lat, sel_lon, data["days"])
+        if daily:
+            df = pd.DataFrame(daily, columns=["Data", "Pioggia (mm)"]).set_index("Data")
+            st.bar_chart(df, use_container_width=True)
+            st.dataframe(df.reset_index(), use_container_width=True, hide_index=True)
+        else:
+            st.warning("Dati giornalieri non disponibili per questo punto.")
